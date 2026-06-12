@@ -3,6 +3,13 @@ import { api } from '../services/api';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
+function formatMoeda(valor, moeda = 'R$') {
+  return `${moeda} ${Number(valor).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function PosicaoBadge({ index }) {
   if (index < 3) {
     return (
@@ -18,21 +25,34 @@ function PosicaoBadge({ index }) {
   );
 }
 
+// Cor de fundo do "chip" do palpite, conforme pontuação
+function chipClasses(pontos, temPalpite) {
+  if (!temPalpite) return 'bg-white/5 text-slate-600 border-white/5';
+  if (pontos === 3) return 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30';
+  if (pontos === 1) return 'bg-sky-500/15 text-sky-300 border-sky-400/30';
+  return 'bg-white/5 text-slate-400 border-white/10';
+}
+
 export default function RankingPage({ refreshKey }) {
   const [ranking, setRanking] = useState([]);
+  const [jogos, setJogos] = useState([]);
+  const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    api
-      .getRanking()
-      .then(setRanking)
+    Promise.all([api.getRanking(), api.getConfig()])
+      .then(([rankingData, configData]) => {
+        setRanking(rankingData.ranking || []);
+        setJogos(rankingData.jogos || []);
+        setConfig(configData);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-20">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
       <div className="mb-6 text-center">
         <h2 className="font-display text-2xl sm:text-3xl font-bold text-white">
           🏆 Tabela de Classificação
@@ -40,19 +60,15 @@ export default function RankingPage({ refreshKey }) {
         <p className="mt-1 text-sm text-slate-400">
           3 pontos por placar exato • 1 ponto por acertar o vencedor/empate
         </p>
+        {config && (
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 px-3 py-1 text-xs font-semibold text-emerald-300">
+            💰 Valor da aposta por pessoa:{' '}
+            <strong>{formatMoeda(config.valorAposta, config.moeda)}</strong>
+          </p>
+        )}
       </div>
 
-      <div className="glass overflow-hidden rounded-3xl shadow-2xl">
-        {/* Header */}
-        <div className="grid grid-cols-[3rem_1fr_auto_auto_auto] sm:grid-cols-[4rem_1fr_6rem_6rem_6rem] items-center gap-2 sm:gap-4 border-b border-white/10 bg-white/[0.03] px-4 sm:px-6 py-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
-          <span>#</span>
-          <span>Participante</span>
-          <span className="text-center hidden sm:inline">Exatos</span>
-          <span className="text-center hidden sm:inline">Resultado</span>
-          <span className="text-right">Pontos</span>
-        </div>
-
-        {/* Body */}
+      <div className="glass overflow-x-auto rounded-3xl shadow-2xl">
         {loading ? (
           <div className="flex flex-col gap-3 p-6">
             {[1, 2, 3].map((i) => (
@@ -71,41 +87,76 @@ export default function RankingPage({ refreshKey }) {
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-white/5">
-            {ranking.map((p, index) => (
-              <li
-                key={p.id}
-                className={`grid grid-cols-[3rem_1fr_auto_auto_auto] sm:grid-cols-[4rem_1fr_6rem_6rem_6rem] items-center gap-2 sm:gap-4 px-4 sm:px-6 py-4 transition-colors hover:bg-white/[0.03] ${
-                  index === 0 ? 'bg-gradient-to-r from-amber-400/10 to-transparent' : ''
-                }`}
-              >
-                <PosicaoBadge index={index} />
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-600 font-display text-sm font-bold text-white">
-                    {p.nome.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-display font-bold text-white">{p.nome}</p>
-                    <p className="text-xs text-slate-500 sm:hidden">
-                      {p.placaresExatos} exatos • {p.acertosResultado} resultados
-                    </p>
-                  </div>
-                </div>
-                <span className="hidden sm:block text-center font-semibold text-emerald-400">
-                  {p.placaresExatos}
-                </span>
-                <span className="hidden sm:block text-center font-semibold text-sky-400">
-                  {p.acertosResultado}
-                </span>
-                <span className="text-right font-display text-xl font-extrabold text-white">
-                  {p.pontos}
-                  <span className="ml-1 text-xs font-medium text-slate-500">pts</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <table className="w-full min-w-[640px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/[0.03] text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-3 sm:px-4 py-3 text-left w-12">#</th>
+                <th className="px-3 sm:px-4 py-3 text-left">Participante</th>
+                {jogos.map((jogo) => (
+                  <th key={jogo.id} className="px-2 py-3 text-center whitespace-nowrap">
+                    {jogo.siglaA} x {jogo.siglaB}
+                  </th>
+                ))}
+                <th className="px-3 py-3 text-center whitespace-nowrap">Apostou</th>
+                <th className="px-3 sm:px-4 py-3 text-right whitespace-nowrap">Pontos</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {ranking.map((p, index) => (
+                <tr
+                  key={p.id}
+                  className={`transition-colors hover:bg-white/[0.03] ${
+                    index === 0 ? 'bg-gradient-to-r from-amber-400/10 to-transparent' : ''
+                  }`}
+                >
+                  <td className="px-3 sm:px-4 py-3">
+                    <PosicaoBadge index={index} />
+                  </td>
+                  <td className="px-3 sm:px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-600 font-display text-sm font-bold text-white">
+                        {p.nome.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="truncate font-display font-bold text-white">{p.nome}</p>
+                    </div>
+                  </td>
+
+                  {jogos.map((jogo) => {
+                    const palpite = p.palpites?.find((pl) => pl.jogoId === jogo.id);
+                    const temPalpite =
+                      palpite && palpite.placarA !== null && palpite.placarB !== null;
+                    return (
+                      <td key={jogo.id} className="px-2 py-3 text-center">
+                        <span
+                          className={`inline-flex min-w-[3.5rem] items-center justify-center rounded-lg border px-2 py-1 font-display text-xs font-bold ${chipClasses(
+                            palpite?.pontos,
+                            temPalpite
+                          )}`}
+                        >
+                          {temPalpite ? `${palpite.placarA} x ${palpite.placarB}` : '—'}
+                        </span>
+                      </td>
+                    );
+                  })}
+
+                  <td className="px-3 py-3 text-center font-semibold text-amber-300 whitespace-nowrap">
+                    {formatMoeda(p.valorAposta, p.moeda)}
+                  </td>
+                  <td className="px-3 sm:px-4 py-3 text-right font-display text-xl font-extrabold text-white whitespace-nowrap">
+                    {p.pontos}
+                    <span className="ml-1 text-xs font-medium text-slate-500">pts</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
+
+      <p className="mt-4 text-center text-xs text-slate-500">
+        🟢 verde = placar exato (3 pts) • 🔵 azul = acertou o resultado (1 pt) • cinza = sem
+        pontuação
+      </p>
     </div>
   );
 }
