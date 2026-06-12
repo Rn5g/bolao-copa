@@ -275,16 +275,22 @@ app.post('/api/palpites', async (req, res) => {
 
 // ----------------- Rota: Ranking -----------------
 app.get('/api/ranking', async (req, res) => {
-  const [{ data: participantes, error: e1 }, { data: palpites, error: e2 }, { data: jogos, error: e3 }] =
-    await Promise.all([
-      supabase.from('participantes').select('*'),
-      supabase.from('palpites').select('*'),
-      supabase.from('jogos').select('*'),
-    ]);
+  const [
+    { data: participantes, error: e1 },
+    { data: palpites, error: e2 },
+    { data: jogos, error: e3 },
+    { data: config, error: e4 },
+  ] = await Promise.all([
+    supabase.from('participantes').select('*'),
+    supabase.from('palpites').select('*'),
+    supabase.from('jogos').select('*').order('id', { ascending: true }),
+    supabase.from('config').select('*').eq('id', 1).single(),
+  ]);
 
   if (e1) return res.status(500).json({ error: e1.message });
   if (e2) return res.status(500).json({ error: e2.message });
   if (e3) return res.status(500).json({ error: e3.message });
+  if (e4) return res.status(500).json({ error: e4.message });
 
   const ranking = participantes.map((participante) => {
     const palpitesDoParticipante = palpites.filter(
@@ -296,9 +302,12 @@ app.get('/api/ranking', async (req, res) => {
     let acertosResultado = 0;
     let jogosPalpitados = palpitesDoParticipante.length;
 
-    palpitesDoParticipante.forEach((palpite) => {
-      const jogo = jogos.find((j) => j.id === palpite.jogo_id);
-      if (!jogo) return;
+    // Palpites detalhados, na ordem dos jogos, para exibir no ranking
+    const palpitesPorJogo = jogos.map((jogo) => {
+      const palpite = palpitesDoParticipante.find((p) => p.jogo_id === jogo.id);
+      if (!palpite) {
+        return { jogoId: jogo.id, placarA: null, placarB: null, pontos: 0 };
+      }
       const pts = calcularPontos(
         palpite.placar_a,
         palpite.placar_b,
@@ -308,6 +317,13 @@ app.get('/api/ranking', async (req, res) => {
       pontos += pts;
       if (pts === 3) placaresExatos++;
       if (pts === 1) acertosResultado++;
+
+      return {
+        jogoId: jogo.id,
+        placarA: palpite.placar_a,
+        placarB: palpite.placar_b,
+        pontos: pts,
+      };
     });
 
     return {
@@ -317,6 +333,9 @@ app.get('/api/ranking', async (req, res) => {
       placaresExatos,
       acertosResultado,
       jogosPalpitados,
+      valorAposta: Number(config.valor_aposta),
+      moeda: config.moeda,
+      palpites: palpitesPorJogo,
     };
   });
 
@@ -326,7 +345,16 @@ app.get('/api/ranking', async (req, res) => {
     return a.nome.localeCompare(b.nome);
   });
 
-  res.json(ranking);
+  res.json({
+    jogos: jogos.map((j) => ({
+      id: j.id,
+      timeA: j.time_a,
+      timeB: j.time_b,
+      siglaA: j.sigla_a,
+      siglaB: j.sigla_b,
+    })),
+    ranking,
+  });
 });
 
 // ----------------- Rota: Resumo / Arrecadação -----------------
