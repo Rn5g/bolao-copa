@@ -24,6 +24,8 @@ export default function AdminPage({ onChange }) {
   const [salvandoPlacar, setSalvandoPlacar] = useState({});
   const [participantes, setParticipantes] = useState([]);
   const [atualizandoPart, setAtualizandoPart] = useState({});
+  const [verificando, setVerificando] = useState(false);
+  const [logVerificacao, setLogVerificacao] = useState(null);
   const [mensagem, setMensagem] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -105,6 +107,22 @@ export default function AdminPage({ onChange }) {
     } catch (err) {
       setMensagem({ tipo: 'erro', texto: err.message });
       setTimeout(() => setMensagem(null), 3000);
+    }
+  };
+
+  const handleVerificarPlacares = async () => {
+    setVerificando(true);
+    setLogVerificacao(null);
+    try {
+      const resultado = await api.verificarPlacaresAgora();
+      setLogVerificacao(resultado.log || []);
+      carregar();
+      onChange?.();
+    } catch (err) {
+      setMensagem({ tipo: 'erro', texto: err.message });
+      setTimeout(() => setMensagem(null), 3000);
+    } finally {
+      setVerificando(false);
     }
   };
 
@@ -409,6 +427,33 @@ export default function AdminPage({ onChange }) {
               sistema também tenta preencher automaticamente após o jogo terminar.
             </p>
           </div>
+        </div>
+
+        {/* Verificação manual de placares automáticos */}
+        <div className="mb-5 flex flex-col gap-3">
+          <button
+            onClick={handleVerificarPlacares}
+            disabled={verificando}
+            className="self-start rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-2.5 text-sm font-display font-bold text-emerald-300 transition-all hover:bg-emerald-400/20 disabled:opacity-50"
+          >
+            {verificando ? '🔄 Verificando...' : '🔄 Verificar placares agora'}
+          </button>
+
+          {logVerificacao && (
+            <div className="rounded-2xl border border-white/5 bg-pitch-900/40 p-4 text-xs text-slate-400">
+              <p className="mb-2 font-bold text-slate-300">Resultado da verificação:</p>
+              <ul className="flex flex-col gap-1">
+                {logVerificacao.map((item, i) => (
+                  <li key={i}>
+                    <span className="text-slate-300">{item.jogo}</span>: {item.status}
+                    {item.placar && (
+                      <span className="text-emerald-300"> → {item.placar}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">
