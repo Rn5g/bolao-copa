@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 // Mapeamento de cores, código de país (FlagCDN) e sigla por seleção.
 // As bandeiras são carregadas automaticamente via flagcdn.com — não é
 // necessário enviar nenhuma imagem manualmente!
@@ -40,22 +42,17 @@ export function getTeamStyle(name) {
 }
 
 function FlagImage({ countryCode, sigla, alt }) {
-  if (!countryCode) {
+  const [erro, setErro] = useState(false);
+
+  if (!countryCode || erro) {
     return <span className="text-[10px] font-black tracking-wide text-white/90">{sigla}</span>;
   }
 
-  // FlagCDN: bandeiras gratuitas, sem necessidade de upload/API key
-  const src = `https://flagcdn.com/w160/${countryCode}.png`;
-
   return (
     <img
-      src={src}
+      src={`https://flagcdn.com/w160/${countryCode}.png`}
       alt={alt}
-      onError={(e) => {
-        // Se a CDN falhar (ex: sem internet), mostra a sigla como fallback
-        e.target.style.display = 'none';
-        e.target.nextSibling.style.display = 'flex';
-      }}
+      onError={() => setErro(true)}
       className="h-full w-full rounded-xl object-cover"
       draggable={false}
       loading="lazy"
@@ -73,28 +70,26 @@ export default function TeamBadge({ name, sigla, size = 'md', align = 'left' }) 
   };
 
   const alignClasses =
-    align === 'right' ? 'items-end text-right' : align === 'center' ? 'items-center text-center' : 'items-start text-left';
-  const rowAlign = align === 'right' ? 'flex-row-reverse' : 'flex-row';
+    align === 'right'
+      ? 'items-end text-right'
+      : align === 'center'
+        ? 'items-center text-center'
+        : 'items-start text-left';
 
   return (
-    <div className={`flex ${alignClasses} gap-2.5 min-w-0`}>
+    <div className={`flex ${alignClasses} gap-2.5 min-w-0 overflow-hidden`}>
       <div
         className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br ${style.gradient} ${sizes[size]} ring-2 ${style.ring} shadow-md`}
       >
         <FlagImage countryCode={style.countryCode} sigla={sigla} alt={name} />
-        <span
-          className="absolute inset-0 hidden items-center justify-center text-[10px] font-black tracking-wide text-white/90"
-        >
-          {sigla}
-        </span>
         <div className="pointer-events-none absolute inset-0 rounded-xl bg-white/10 mix-blend-overlay" />
       </div>
-      <div className="min-w-0 flex flex-col justify-center">
+      <div className="min-w-0 flex flex-col justify-center overflow-hidden">
         <p className="font-display font-bold text-xs sm:text-sm text-white truncate leading-tight">
           {name}
         </p>
         {sigla && (
-          <p className={`text-[10px] font-semibold tracking-widest uppercase ${style.text}`}>
+          <p className={`text-[10px] font-semibold tracking-widest uppercase truncate ${style.text}`}>
             {sigla}
           </p>
         )}
