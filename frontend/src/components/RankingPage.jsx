@@ -98,6 +98,7 @@ export default function RankingPage({ refreshKey }) {
                   </th>
                 ))}
                 <th className="px-3 py-3 text-center whitespace-nowrap">Apostou</th>
+                <th className="px-3 py-3 text-center whitespace-nowrap">Pago</th>
                 <th className="px-3 sm:px-4 py-3 text-right whitespace-nowrap">Pontos</th>
               </tr>
             </thead>
@@ -141,6 +142,17 @@ export default function RankingPage({ refreshKey }) {
 
                   <td className="px-3 py-3 text-center font-semibold text-amber-300 whitespace-nowrap">
                     {formatMoeda(p.valorAposta, p.moeda)}
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    {p.pago ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                        ✓ Pago
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                        ⏳ Pendente
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 sm:px-4 py-3 text-right font-display text-xl font-extrabold text-white whitespace-nowrap">
                     {p.pontos}
