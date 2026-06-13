@@ -11,6 +11,25 @@ export default function ApostasPage({ onPalpiteSalvo }) {
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState(null);
+  const [qrAmpliado, setQrAmpliado] = useState(false);
+  const [pixCopiado, setPixCopiado] = useState(false);
+
+  const handleCopiarPix = async () => {
+    if (!config?.pixCode) return;
+    try {
+      await navigator.clipboard.writeText(config.pixCode);
+    } catch {
+      // Fallback para navegadores sem suporte ao clipboard API
+      const textarea = document.createElement('textarea');
+      textarea.value = config.pixCode;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    setPixCopiado(true);
+    setTimeout(() => setPixCopiado(false), 2500);
+  };
 
   // Carrega jogos e config
   const carregarJogos = () => {
@@ -201,23 +220,76 @@ export default function ApostasPage({ onPalpiteSalvo }) {
           </div>
 
           {/* QR Code de pagamento */}
-          {config?.qrCodeUrl && (
+          {(config?.qrCodeUrl || config?.pixCode) && (
             <div className="glass mb-8 flex flex-col sm:flex-row items-center gap-5 rounded-3xl p-5 sm:p-6">
-              <img
-                src={config.qrCodeUrl}
-                alt="QR Code para pagamento"
-                className="h-32 w-32 sm:h-36 sm:w-36 rounded-2xl border-2 border-white/10 object-cover shrink-0"
-              />
-              <div className="text-center sm:text-left">
+              {config?.qrCodeUrl && (
+                <button
+                  type="button"
+                  onClick={() => setQrAmpliado(true)}
+                  className="shrink-0 group relative"
+                  title="Clique para ampliar"
+                >
+                  <img
+                    src={config.qrCodeUrl}
+                    alt="QR Code para pagamento"
+                    className="h-32 w-32 sm:h-36 sm:w-36 rounded-2xl border-2 border-white/10 object-cover transition-transform group-hover:scale-105 group-hover:border-emerald-400/50 cursor-zoom-in"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 text-2xl opacity-0 transition-opacity group-hover:bg-black/30 group-hover:opacity-100">
+                    🔍
+                  </span>
+                </button>
+              )}
+              <div className="text-center sm:text-left w-full">
                 <h3 className="font-display text-lg font-bold text-white">
                   💳 Pagamento da aposta
                 </h3>
                 <p className="mt-1 text-sm text-slate-400">
-                  Escaneie o QR Code acima para realizar o pagamento de{' '}
+                  {config?.qrCodeUrl && 'Escaneie o QR Code (clique para ampliar) ou use o código Pix abaixo para pagar '}
+                  {!config?.qrCodeUrl && 'Use o código Pix abaixo para pagar '}
                   <strong className="text-emerald-300">
                     {config.moeda} {Number(config.valorAposta).toFixed(2)}
-                  </strong>{' '}
-                  referente à sua participação no bolão.
+                  </strong>
+                  .
+                </p>
+
+                {config?.pixCode && (
+                  <div className="mt-3 flex items-stretch gap-2">
+                    <div className="flex-1 truncate rounded-xl border border-white/10 bg-pitch-900/60 px-3 py-2.5 font-mono text-xs text-slate-300">
+                      {config.pixCode}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopiarPix}
+                      className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 px-4 py-2.5 text-sm font-display font-bold text-pitch-900 shadow-md shadow-emerald-500/20 transition-all hover:scale-[1.03] active:scale-95"
+                    >
+                      {pixCopiado ? '✅ Copiado!' : '📋 Copiar'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Modal QR Code ampliado */}
+          {qrAmpliado && config?.qrCodeUrl && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"
+              onClick={() => setQrAmpliado(false)}
+            >
+              <div className="relative max-w-sm w-full">
+                <img
+                  src={config.qrCodeUrl}
+                  alt="QR Code para pagamento (ampliado)"
+                  className="w-full rounded-3xl border-4 border-white/10 shadow-2xl"
+                />
+                <button
+                  onClick={() => setQrAmpliado(false)}
+                  className="absolute -top-3 -right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl font-bold text-pitch-900 shadow-lg"
+                >
+                  ✕
+                </button>
+                <p className="mt-3 text-center text-sm text-slate-300">
+                  Toque fora da imagem para fechar
                 </p>
               </div>
             </div>
