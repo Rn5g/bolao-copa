@@ -28,6 +28,7 @@ function configToApi(c) {
     valorAposta: Number(c.valor_aposta),
     moeda: c.moeda,
     qrCodeUrl: c.qr_code_url || null,
+    pixCode: c.pix_code || null,
   };
 }
 
@@ -105,11 +106,12 @@ app.get('/api/config', async (req, res) => {
 });
 
 app.put('/api/config', async (req, res) => {
-  const { valorAposta, moeda, qrCodeUrl } = req.body;
+  const { valorAposta, moeda, qrCodeUrl, pixCode } = req.body;
   const updates = {};
   if (valorAposta !== undefined) updates.valor_aposta = Number(valorAposta);
   if (moeda !== undefined) updates.moeda = moeda;
   if (qrCodeUrl !== undefined) updates.qr_code_url = qrCodeUrl;
+  if (pixCode !== undefined) updates.pix_code = pixCode;
 
   const { data, error } = await supabase
     .from('config')
