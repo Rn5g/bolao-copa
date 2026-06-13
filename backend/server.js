@@ -432,49 +432,74 @@ const NOME_API = {
 };
 
 // Usa a API gratuita TheSportsDB (chave de teste pública "3") para tentar
-// localizar o placar de um confronto específico em uma determinada data.
+// localizar o placar de um confronto específico.
 async function buscarPlacarAutomatico(jogo) {
   const timeA = NOME_API[jogo.time_a] || jogo.time_a;
   const timeB = NOME_API[jogo.time_b] || jogo.time_b;
 
-  const url = `https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e=${encodeURIComponent(
-    `${timeA}_vs_${timeB}`
-  )}&s=2026`;
+  // Tenta algumas variações de busca, pois a API é sensível ao formato
+  const tentativas = [
+    `https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e=${encodeURIComponent(
+      `${timeA}_vs_${timeB}`
+    )}&s=2026`,
+    `https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e=${encodeURIComponent(
+      `${timeA}_vs_${timeB}`
+    )}`,
+    `https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e=${encodeURIComponent(
+      `${timeB}_vs_${timeA}`
+    )}&s=2026`,
+  ];
 
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    const json = await resp.json();
-    const evento = json?.event?.[0];
-    if (!evento) return null;
+  for (const url of tentativas) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) continue;
+      const json = await resp.json();
+      const eventos = json?.event;
+      if (!eventos || !eventos.length) continue;
 
-    // A API retorna intHomeScore / intAwayScore quando o jogo termina
-    if (evento.intHomeScore === null || evento.intAwayScore === null) return null;
-    if (evento.intHomeScore === undefined || evento.intAwayScore === undefined) return null;
+      // Procura um evento cuja data combine com a do nosso jogo
+      const evento =
+        eventos.find((ev) => ev.dateEvent === jogo.data) || eventos[0];
 
-    // Verifica se o "home" da API corresponde ao timeA do nosso jogo
-    const homeIsTimeA = (evento.strHomeTeam || '').toLowerCase().includes(timeA.toLowerCase());
+      if (evento.intHomeScore === null || evento.intAwayScore === null) continue;
+      if (evento.intHomeScore === undefined || evento.intAwayScore === undefined) continue;
 
-    return homeIsTimeA
-      ? { placarA: Number(evento.intHomeScore), placarB: Number(evento.intAwayScore) }
-      : { placarA: Number(evento.intAwayScore), placarB: Number(evento.intHomeScore) };
-  } catch (err) {
-    console.error('Erro ao buscar placar automático:', err.message);
-    return null;
+      const homeIsTimeA = (evento.strHomeTeam || '')
+        .toLowerCase()
+        .includes(timeA.toLowerCase());
+
+      return {
+        placarA: homeIsTimeA ? Number(evento.intHomeScore) : Number(evento.intAwayScore),
+        placarB: homeIsTimeA ? Number(evento.intAwayScore) : Number(evento.intHomeScore),
+        fonte: evento.strEvent || `${timeA} vs ${timeB}`,
+      };
+    } catch (err) {
+      console.error('Erro ao consultar TheSportsDB:', err.message);
+    }
   }
+
+  return null;
 }
 
 async function atualizarPlacaresAutomaticamente() {
   const { data: jogos, error } = await supabase.from('jogos').select('*').order('id', { ascending: true });
-  if (error) return;
+  if (error) return [];
 
   const agora = new Date();
+  const resultadosLog = [];
 
   for (const jogo of jogos) {
-    // Só tenta atualizar jogos que já começaram e ainda não têm placar
     const kickoff = getKickoff(jogo);
-    if (jogo.placar_a !== null || jogo.placar_b !== null) continue;
-    if (agora < kickoff) continue;
+
+    if (jogo.placar_a !== null || jogo.placar_b !== null) {
+      resultadosLog.push({ jogo: `${jogo.time_a} x ${jogo.time_b}`, status: 'já tem placar' });
+      continue;
+    }
+    if (agora < kickoff) {
+      resultadosLog.push({ jogo: `${jogo.time_a} x ${jogo.time_b}`, status: 'ainda não começou' });
+      continue;
+    }
 
     const resultado = await buscarPlacarAutomatico(jogo);
     if (resultado) {
@@ -483,12 +508,29 @@ async function atualizarPlacaresAutomaticamente() {
         .update({ placar_a: resultado.placarA, placar_b: resultado.placarB })
         .eq('id', jogo.id);
 
+      resultadosLog.push({
+        jogo: `${jogo.time_a} x ${jogo.time_b}`,
+        status: 'atualizado',
+        placar: `${resultado.placarA} x ${resultado.placarB}`,
+        fonte: resultado.fonte,
+      });
+
       console.log(
         `✅ Placar atualizado automaticamente: ${jogo.time_a} ${resultado.placarA} x ${resultado.placarB} ${jogo.time_b}`
       );
+    } else {
+      resultadosLog.push({ jogo: `${jogo.time_a} x ${jogo.time_b}`, status: 'resultado ainda não disponível na API' });
     }
   }
+
+  return resultadosLog;
 }
+
+// Rota para o admin forçar a verificação manualmente e ver o resultado
+app.post('/api/admin/verificar-placares', async (req, res) => {
+  const log = await atualizarPlacaresAutomaticamente();
+  res.json({ log });
+});
 
 // Roda a verificação a cada 5 minutos
 const CINCO_MINUTOS = 5 * 60 * 1000;
