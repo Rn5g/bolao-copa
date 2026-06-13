@@ -16,6 +16,8 @@ export default function AdminPage({ onChange }) {
   const [config, setConfig] = useState(null);
   const [valorAposta, setValorAposta] = useState('');
   const [qrPreview, setQrPreview] = useState(null);
+  const [pixCode, setPixCode] = useState('');
+  const [salvandoPix, setSalvandoPix] = useState(false);
   const [jogos, setJogos] = useState([]);
   const [placares, setPlacares] = useState({});
   const [salvandoConfig, setSalvandoConfig] = useState(false);
@@ -28,6 +30,7 @@ export default function AdminPage({ onChange }) {
       setConfig(c);
       setValorAposta(c.valorAposta);
       setQrPreview(c.qrCodeUrl || null);
+      setPixCode(c.pixCode || '');
     });
     api.getJogos().then((data) => {
       setJogos(data);
@@ -98,6 +101,21 @@ export default function AdminPage({ onChange }) {
       onChange?.();
     } catch (err) {
       setMensagem({ tipo: 'erro', texto: err.message });
+      setTimeout(() => setMensagem(null), 3000);
+    }
+  };
+
+  const handleSalvarPix = async (e) => {
+    e.preventDefault();
+    setSalvandoPix(true);
+    try {
+      await api.updateConfig({ pixCode: pixCode.trim() });
+      setMensagem({ tipo: 'sucesso', texto: '✅ Código Pix salvo com sucesso!' });
+      onChange?.();
+    } catch (err) {
+      setMensagem({ tipo: 'erro', texto: err.message });
+    } finally {
+      setSalvandoPix(false);
       setTimeout(() => setMensagem(null), 3000);
     }
   };
@@ -243,6 +261,40 @@ export default function AdminPage({ onChange }) {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Código Pix Copia e Cola */}
+      <div className="glass mb-8 rounded-3xl p-6 sm:p-8 shadow-2xl">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-xl shadow-lg shadow-emerald-500/30">
+            🔑
+          </div>
+          <div>
+            <h3 className="font-display text-lg font-bold text-white">
+              Código Pix (Copia e Cola)
+            </h3>
+            <p className="text-xs text-slate-400">
+              Os participantes poderão copiar esse código com um clique
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSalvarPix} className="flex flex-col gap-4">
+          <textarea
+            value={pixCode}
+            onChange={(e) => setPixCode(e.target.value)}
+            placeholder="00020101021226820014BR.GOV.BCB.PIX..."
+            rows={3}
+            className="w-full resize-none rounded-2xl border-2 border-white/10 bg-pitch-900/60 px-4 py-3 text-sm font-mono text-white outline-none transition-all focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 placeholder:text-slate-500"
+          />
+          <button
+            type="submit"
+            disabled={salvandoPix}
+            className="self-start rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 px-6 py-3 font-display font-bold text-pitch-900 shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.03] active:scale-95 disabled:opacity-50"
+          >
+            {salvandoPix ? 'Salvando...' : 'Salvar código Pix'}
+          </button>
+        </form>
       </div>
 
       {/* Placares reais */}
