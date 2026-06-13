@@ -168,7 +168,35 @@ app.get('/api/participantes', async (req, res) => {
     .order('id', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  res.json(data.map((p) => ({ id: p.id, nome: p.nome, pago: !!p.pago })));
+});
+
+// Marca/desmarca o pagamento de um participante (admin)
+app.put('/api/participantes/:id/pagamento', async (req, res) => {
+  const id = Number(req.params.id);
+  const { pago } = req.body;
+
+  const { data, error } = await supabase
+    .from('participantes')
+    .update({ pago: !!pago })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'Participante não encontrado' });
+
+  res.json({ id: data.id, nome: data.nome, pago: !!data.pago });
+});
+
+// Remove um participante (e seus palpites, via cascade) - admin
+app.delete('/api/participantes/:id', async (req, res) => {
+  const id = Number(req.params.id);
+
+  const { error } = await supabase.from('participantes').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ success: true });
 });
 
 app.post('/api/participantes', async (req, res) => {
@@ -185,7 +213,7 @@ app.post('/api/participantes', async (req, res) => {
     .maybeSingle();
 
   if (errBusca) return res.status(500).json({ error: errBusca.message });
-  if (existente) return res.json(existente);
+  if (existente) return res.json({ id: existente.id, nome: existente.nome, pago: !!existente.pago });
 
   const { data, error } = await supabase
     .from('participantes')
@@ -194,7 +222,7 @@ app.post('/api/participantes', async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  res.json({ id: data.id, nome: data.nome, pago: !!data.pago });
 });
 
 app.get('/api/participantes/:id/palpites', async (req, res) => {
@@ -337,6 +365,7 @@ app.get('/api/ranking', async (req, res) => {
       jogosPalpitados,
       valorAposta: Number(config.valor_aposta),
       moeda: config.moeda,
+      pago: !!participante.pago,
       palpites: palpitesPorJogo,
     };
   });
@@ -361,24 +390,33 @@ app.get('/api/ranking', async (req, res) => {
 
 // ----------------- Rota: Resumo / Arrecadação -----------------
 app.get('/api/resumo', async (req, res) => {
-  const [{ count: totalParticipantes, error: e1 }, { data: config, error: e2 }, { count: totalJogos, error: e3 }] =
-    await Promise.all([
-      supabase.from('participantes').select('*', { count: 'exact', head: true }),
-      supabase.from('config').select('*').eq('id', 1).single(),
-      supabase.from('jogos').select('*', { count: 'exact', head: true }),
-    ]);
+  const [
+    { count: totalParticipantes, error: e1 },
+    { data: config, error: e2 },
+    { count: totalJogos, error: e3 },
+    { count: totalPagos, error: e4 },
+  ] = await Promise.all([
+    supabase.from('participantes').select('*', { count: 'exact', head: true }),
+    supabase.from('config').select('*').eq('id', 1).single(),
+    supabase.from('jogos').select('*', { count: 'exact', head: true }),
+    supabase.from('participantes').select('*', { count: 'exact', head: true }).eq('pago', true),
+  ]);
 
   if (e1) return res.status(500).json({ error: e1.message });
   if (e2) return res.status(500).json({ error: e2.message });
   if (e3) return res.status(500).json({ error: e3.message });
+  if (e4) return res.status(500).json({ error: e4.message });
 
   const valorAposta = Number(config.valor_aposta);
   const totalArrecadado = totalParticipantes * valorAposta;
+  const totalConfirmado = totalPagos * valorAposta;
 
   res.json({
     totalParticipantes,
+    totalPagos,
     valorAposta,
     totalArrecadado,
+    totalConfirmado,
     moeda: config.moeda,
     totalJogos,
   });
