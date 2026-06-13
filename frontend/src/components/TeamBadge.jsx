@@ -60,36 +60,34 @@ function FlagImage({ countryCode, sigla, alt }) {
   );
 }
 
-export default function TeamBadge({ name, sigla, size = 'md', align = 'left' }) {
+/**
+ * Exibe a bandeira em cima e o nome/sigla abaixo, centralizados.
+ * Layout vertical evita que nomes longos (ex: "Marrocos", "Escócia")
+ * fiquem cortados ou vazem do card.
+ */
+export default function TeamBadge({ name, sigla, size = 'md' }) {
   const style = getTeamStyle(name);
 
   const sizes = {
     sm: 'w-9 h-9',
-    md: 'w-11 h-11 sm:w-12 sm:h-12',
+    md: 'w-12 h-12 sm:w-14 sm:h-14',
     lg: 'w-16 h-16',
   };
 
-  const alignClasses =
-    align === 'right'
-      ? 'items-end text-right'
-      : align === 'center'
-        ? 'items-center text-center'
-        : 'items-start text-left';
-
   return (
-    <div className={`flex ${alignClasses} gap-2.5 min-w-0 overflow-hidden`}>
+    <div className="flex flex-col items-center gap-1.5 min-w-0 w-full">
       <div
         className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br ${style.gradient} ${sizes[size]} ring-2 ${style.ring} shadow-md`}
       >
         <FlagImage countryCode={style.countryCode} sigla={sigla} alt={name} />
         <div className="pointer-events-none absolute inset-0 rounded-xl bg-white/10 mix-blend-overlay" />
       </div>
-      <div className="min-w-0 flex flex-col justify-center overflow-hidden">
-        <p className="font-display font-bold text-xs sm:text-sm text-white truncate leading-tight">
+      <div className="flex flex-col items-center text-center w-full px-0.5">
+        <p className="font-display font-bold text-[11px] sm:text-xs text-white leading-tight break-words">
           {name}
         </p>
         {sigla && (
-          <p className={`text-[10px] font-semibold tracking-widest uppercase truncate ${style.text}`}>
+          <p className={`text-[9px] sm:text-[10px] font-semibold tracking-widest uppercase ${style.text}`}>
             {sigla}
           </p>
         )}
