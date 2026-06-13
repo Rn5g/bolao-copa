@@ -1,32 +1,28 @@
-import { useState } from 'react';
-
-// Mapeamento de cores, emoji (fallback) e nome do arquivo por seleção
+// Mapeamento de cores, código de país (FlagCDN) e sigla por seleção.
+// As bandeiras são carregadas automaticamente via flagcdn.com — não é
+// necessário enviar nenhuma imagem manualmente!
 const TEAM_STYLES = {
   Brasil: {
     gradient: 'from-yellow-400 via-green-500 to-blue-700',
-    flag: '🇧🇷',
-    file: 'brasil',
+    countryCode: 'br',
     text: 'text-yellow-300',
     ring: 'ring-yellow-400/40',
   },
   Marrocos: {
     gradient: 'from-red-600 via-red-700 to-emerald-700',
-    flag: '🇲🇦',
-    file: 'marrocos',
+    countryCode: 'ma',
     text: 'text-red-400',
     ring: 'ring-red-500/40',
   },
   Haiti: {
     gradient: 'from-blue-700 via-blue-600 to-red-600',
-    flag: '🇭🇹',
-    file: 'haiti',
+    countryCode: 'ht',
     text: 'text-blue-400',
     ring: 'ring-blue-500/40',
   },
   Escócia: {
     gradient: 'from-blue-800 via-blue-600 to-blue-400',
-    flag: '🏴',
-    file: 'escocia',
+    countryCode: 'gb-sct', // bandeira específica da Escócia (Cruz de Santo André)
     text: 'text-sky-400',
     ring: 'ring-sky-500/40',
   },
@@ -34,66 +30,71 @@ const TEAM_STYLES = {
 
 const DEFAULT_STYLE = {
   gradient: 'from-slate-600 via-slate-500 to-slate-700',
-  flag: '🏳️',
-  file: null,
+  countryCode: null,
   text: 'text-slate-300',
   ring: 'ring-slate-400/40',
 };
-
-// Extensões testadas, em ordem de preferência
-const EXTENSOES = ['png', 'webp', 'svg', 'jpg', 'jpeg'];
 
 export function getTeamStyle(name) {
   return TEAM_STYLES[name] || DEFAULT_STYLE;
 }
 
-/**
- * Tenta carregar /flags/<file>.<ext> testando cada extensão da lista.
- * Se nenhuma existir, exibe o emoji de fallback.
- */
-function FlagImage({ file, fallbackEmoji, alt }) {
-  const [extIndex, setExtIndex] = useState(0);
-
-  if (!file || extIndex >= EXTENSOES.length) {
-    return <span className="drop-shadow-md">{fallbackEmoji}</span>;
+function FlagImage({ countryCode, sigla, alt }) {
+  if (!countryCode) {
+    return <span className="text-[10px] font-black tracking-wide text-white/90">{sigla}</span>;
   }
 
-  const src = `/flags/${file}.${EXTENSOES[extIndex]}`;
+  // FlagCDN: bandeiras gratuitas, sem necessidade de upload/API key
+  const src = `https://flagcdn.com/w160/${countryCode}.png`;
 
   return (
     <img
       src={src}
       alt={alt}
-      onError={() => setExtIndex((i) => i + 1)}
-      className="h-full w-full rounded-2xl object-cover"
+      onError={(e) => {
+        // Se a CDN falhar (ex: sem internet), mostra a sigla como fallback
+        e.target.style.display = 'none';
+        e.target.nextSibling.style.display = 'flex';
+      }}
+      className="h-full w-full rounded-xl object-cover"
       draggable={false}
+      loading="lazy"
     />
   );
 }
 
-export default function TeamBadge({ name, sigla, size = 'md' }) {
+export default function TeamBadge({ name, sigla, size = 'md', align = 'left' }) {
   const style = getTeamStyle(name);
 
   const sizes = {
-    sm: 'w-10 h-10 text-xl',
-    md: 'w-14 h-14 text-2xl',
-    lg: 'w-20 h-20 text-4xl',
+    sm: 'w-9 h-9',
+    md: 'w-11 h-11 sm:w-12 sm:h-12',
+    lg: 'w-16 h-16',
   };
 
+  const alignClasses =
+    align === 'right' ? 'items-end text-right' : align === 'center' ? 'items-center text-center' : 'items-start text-left';
+  const rowAlign = align === 'right' ? 'flex-row-reverse' : 'flex-row';
+
   return (
-    <div className="flex flex-col items-center gap-1.5 min-w-0">
+    <div className={`flex ${alignClasses} gap-2.5 min-w-0`}>
       <div
-        className={`relative flex items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${style.gradient} ${sizes[size]} ring-2 ${style.ring} shadow-lg shrink-0`}
+        className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br ${style.gradient} ${sizes[size]} ring-2 ${style.ring} shadow-md`}
       >
-        <FlagImage file={style.file} fallbackEmoji={style.flag} alt={name} />
-        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-white/10 mix-blend-overlay" />
+        <FlagImage countryCode={style.countryCode} sigla={sigla} alt={name} />
+        <span
+          className="absolute inset-0 hidden items-center justify-center text-[10px] font-black tracking-wide text-white/90"
+        >
+          {sigla}
+        </span>
+        <div className="pointer-events-none absolute inset-0 rounded-xl bg-white/10 mix-blend-overlay" />
       </div>
-      <div className="text-center min-w-0 w-full">
-        <p className="font-display font-bold text-sm sm:text-base text-white truncate leading-tight">
+      <div className="min-w-0 flex flex-col justify-center">
+        <p className="font-display font-bold text-xs sm:text-sm text-white truncate leading-tight">
           {name}
         </p>
         {sigla && (
-          <p className={`text-[10px] sm:text-xs font-semibold tracking-widest uppercase ${style.text}`}>
+          <p className={`text-[10px] font-semibold tracking-widest uppercase ${style.text}`}>
             {sigla}
           </p>
         )}
