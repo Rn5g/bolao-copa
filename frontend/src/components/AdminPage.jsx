@@ -22,6 +22,8 @@ export default function AdminPage({ onChange }) {
   const [placares, setPlacares] = useState({});
   const [salvandoConfig, setSalvandoConfig] = useState(false);
   const [salvandoPlacar, setSalvandoPlacar] = useState({});
+  const [participantes, setParticipantes] = useState([]);
+  const [atualizandoPart, setAtualizandoPart] = useState({});
   const [mensagem, setMensagem] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -43,6 +45,7 @@ export default function AdminPage({ onChange }) {
       });
       setPlacares(map);
     });
+    api.getParticipantes().then(setParticipantes);
   };
 
   useEffect(() => {
@@ -105,8 +108,41 @@ export default function AdminPage({ onChange }) {
     }
   };
 
-  const handleSalvarPix = async (e) => {
-    e.preventDefault();
+  const handleTogglePago = async (id, pagoAtual) => {
+    setAtualizandoPart((prev) => ({ ...prev, [id]: true }));
+    try {
+      await api.marcarPagamento(id, !pagoAtual);
+      setParticipantes((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, pago: !pagoAtual } : p))
+      );
+      onChange?.();
+    } catch (err) {
+      setMensagem({ tipo: 'erro', texto: err.message });
+      setTimeout(() => setMensagem(null), 3000);
+    } finally {
+      setAtualizandoPart((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleExcluirParticipante = async (id, nome) => {
+    if (!window.confirm(`Remover "${nome}" e todos os seus palpites? Essa ação não pode ser desfeita.`)) {
+      return;
+    }
+    setAtualizandoPart((prev) => ({ ...prev, [id]: true }));
+    try {
+      await api.excluirParticipante(id);
+      setParticipantes((prev) => prev.filter((p) => p.id !== id));
+      setMensagem({ tipo: 'sucesso', texto: `✅ ${nome} removido(a).` });
+      onChange?.();
+    } catch (err) {
+      setMensagem({ tipo: 'erro', texto: err.message });
+    } finally {
+      setAtualizandoPart((prev) => ({ ...prev, [id]: false }));
+      setTimeout(() => setMensagem(null), 3000);
+    }
+  };
+
+  const handleSalvarPix = async (e) => {    e.preventDefault();
     setSalvandoPix(true);
     try {
       await api.updateConfig({ pixCode: pixCode.trim() });
@@ -295,6 +331,67 @@ export default function AdminPage({ onChange }) {
             {salvandoPix ? 'Salvando...' : 'Salvar código Pix'}
           </button>
         </form>
+      </div>
+
+      {/* Controle de Pagamentos */}
+      <div className="glass mb-8 rounded-3xl p-6 sm:p-8 shadow-2xl">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-fuchsia-500 text-xl shadow-lg shadow-fuchsia-500/30">
+            💳
+          </div>
+          <div>
+            <h3 className="font-display text-lg font-bold text-white">
+              Controle de Pagamentos
+            </h3>
+            <p className="text-xs text-slate-400">
+              Marque manualmente quem já pagou. Quem não pagar pode ser removido.
+            </p>
+          </div>
+        </div>
+
+        {participantes.length === 0 ? (
+          <p className="text-center text-sm text-slate-500 py-6">
+            Nenhum participante cadastrado ainda.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {participantes.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-pitch-900/40 px-4 py-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-600 font-display text-sm font-bold text-white">
+                    {p.nome.charAt(0).toUpperCase()}
+                  </div>
+                  <p className="truncate font-display font-bold text-white">{p.nome}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleTogglePago(p.id, p.pago)}
+                    disabled={atualizandoPart[p.id]}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 ${
+                      p.pago
+                        ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20'
+                        : 'border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20'
+                    }`}
+                  >
+                    {p.pago ? '✓ Pago' : '⏳ Pendente'}
+                  </button>
+                  <button
+                    onClick={() => handleExcluirParticipante(p.id, p.nome)}
+                    disabled={atualizandoPart[p.id]}
+                    className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-xs font-bold text-red-300 transition-all hover:bg-red-400/20 disabled:opacity-50"
+                    title="Remover participante"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Placares reais */}
