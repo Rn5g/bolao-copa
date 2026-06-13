@@ -39,6 +39,14 @@ export const api = {
     }).then(handleResponse),
   getPalpitesDoParticipante: (id) =>
     fetch(`${API_URL}/participantes/${id}/palpites`).then(handleResponse),
+  marcarPagamento: (id, pago) =>
+    fetch(`${API_URL}/participantes/${id}/pagamento`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pago }),
+    }).then(handleResponse),
+  excluirParticipante: (id) =>
+    fetch(`${API_URL}/participantes/${id}`, { method: 'DELETE' }).then(handleResponse),
 
   // Palpites
   salvarPalpite: (data) =>
