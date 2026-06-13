@@ -47,6 +47,8 @@ export const api = {
     }).then(handleResponse),
   excluirParticipante: (id) =>
     fetch(`${API_URL}/participantes/${id}`, { method: 'DELETE' }).then(handleResponse),
+  verificarPlacaresAgora: () =>
+    fetch(`${API_URL}/admin/verificar-placares`, { method: 'POST' }).then(handleResponse),
 
   // Palpites
   salvarPalpite: (data) =>
