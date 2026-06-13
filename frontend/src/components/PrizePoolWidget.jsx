@@ -44,9 +44,18 @@ export default function PrizePoolWidget({ refreshKey }) {
           {loading || !resumo ? (
             <div className="h-16 sm:h-20 w-64 rounded-xl bg-white/5 animate-pulse mt-2" />
           ) : (
-            <p className="font-display text-5xl sm:text-7xl font-black tracking-tight bg-gradient-to-r from-emerald-300 via-emerald-200 to-amber-300 bg-clip-text text-transparent drop-shadow-sm">
-              {formatMoeda(resumo.totalArrecadado, resumo.moeda)}
-            </p>
+            <>
+              <p className="font-display text-5xl sm:text-7xl font-black tracking-tight bg-gradient-to-r from-emerald-300 via-emerald-200 to-amber-300 bg-clip-text text-transparent drop-shadow-sm">
+                {formatMoeda(resumo.totalArrecadado, resumo.moeda)}
+              </p>
+              <p className="text-xs text-slate-400">
+                ✅ Confirmado (pago):{' '}
+                <strong className="text-emerald-300">
+                  {formatMoeda(resumo.totalConfirmado ?? 0, resumo.moeda)}
+                </strong>{' '}
+                ({resumo.totalPagos ?? 0}/{resumo.totalParticipantes})
+              </p>
+            </>
           )}
 
           {!loading && resumo && (
